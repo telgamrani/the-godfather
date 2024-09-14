@@ -8,12 +8,12 @@
 		<th>+/-</th>
 		<th>chart+</th>
 	</tr>
-	<tr *ngFor="let stock of stocksToDisplay">
-		<td>{{stock.symbol}}</td>
+	<tr *ngFor="let stock of stocksToDisplay; let i = index">
+		<td>{{++i}} {{stock.symbol}}</td>
 		<!--td>{{stock.threeMonthsProfitCounter}} / {{stock.threeMonthsLossCounter}}</td-->
-		<td>{{stock.currentPrice  | number : '1.2-2'}} $</td>
+		<!--td>{{stock.currentPrice  | number : '1.2-2'}} $</td-->
 		<!--td>{{stock.curentPriceVariationPercent | number : '1.2-2'}} %</td-->
-		<td>{{stock.threeMonthsProfitLossPlusMinusChart}}</td>
+		<!--td>{{stock.threeMonthsProfitLossPlusMinusChart}}</td-->
 		<td>
 			<div class="chart-container">
 				<canvas id="{{'chart'+stock.symbol}}"></canvas>

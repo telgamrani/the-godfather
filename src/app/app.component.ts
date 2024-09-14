@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, NgZone, OnInit } from '@angular/core';
 import { count, finalize } from 'rxjs';
 import { concat } from 'rxjs/internal/observable/concat';
 import { StockService } from './core/services/stock.service';
@@ -10,6 +10,7 @@ import { STOCKS_US } from './shared/const/stocks-us.const';
 import { Stock } from './shared/model/stock.model';
 import Chart from 'chart.js/auto';
 import { MY_LIST } from './shared/const/my-list.const';
+import { STOCKS_SANDP_5OO } from './shared/const/stocks_sand_500.const';
 
 @Component({
   selector: 'app-root',
@@ -22,11 +23,12 @@ export class AppComponent implements OnInit {
   stocks = new Array<Stock | string>();
   stocksToDisplay = new Array<Stock>();
   indexPrices = new Array<number>();
+  sandp500Prices = new Array<number>(); 
 
   echangeMarket: string = 'us';
   public charts = new Array<any>();
 
-  constructor(private stockService: StockService) {}
+  constructor(private stockService: StockService, private zone: NgZone) {}
 
   ngOnInit(): void {
     this.echangeMarket = 'us';
@@ -53,10 +55,11 @@ export class AppComponent implements OnInit {
     }
 
     this.stocks = [
-      ...STOCKS_US,
+      //...STOCKS_US,
       //...STOCKS_EUROPE,
       //...STOCKS_ASX,
       //...STOCKS_ASIE,
+      ...STOCKS_SANDP_5OO
     ];
     //this.stocks = MY_LIST;
     //this.stocks = All_STOCKS;
@@ -134,8 +137,8 @@ export class AppComponent implements OnInit {
       requestArray.push(
         this.stockService.fetchStockClosePricesByIntervalAndRange(
           symbol,
-          '1wk',
-          '3y',
+          '1d',
+          '2y',
           1
         )
       );
@@ -148,6 +151,10 @@ export class AppComponent implements OnInit {
             symbol: response.stockSymbol,
             stocksIndustryID: response.stocksIndustryID,
           } as Stock;
+
+          if (response.stockSymbol === "%5EGSPC") {
+            this.sandp500Prices = [...response.closePrices];
+          }
 
           this.calculateMovingAvgBitGap(stock, response.closePrices);
           this.stocksToDisplay = [...this.stocksToDisplay, stock].sort(
@@ -292,7 +299,7 @@ export class AppComponent implements OnInit {
   ) {
     stockPricesHistory = stockPricesHistory?.filter((n) => n);
     let counter = 0;
-    let retry = 3;
+    let retry = 6;
 
     for (let index = stockPricesHistory.length - 1; index > 0; index--) {
       const currentPrice = stockPricesHistory[index];
@@ -315,16 +322,18 @@ export class AppComponent implements OnInit {
     )} | ${counter} | mm: ${stock.curentPriceVariationPercent.toFixed(2)}`;
 
     // Chart
-    setTimeout(
-      () =>
-        this.createChart(
-          'chart' + stock.symbol,
-          rsi,
-          stockPricesHistory,
-          mmaPrice
-        ),
-      100
-    );
+    this.zone.runOutsideAngular(() =>
+      setTimeout(
+        () =>
+          this.createChart(
+            'chart' + stock.symbol,
+            rsi,
+            stockPricesHistory,
+            mmaPrice
+          ),
+        100
+      )
+    )
   }
 
   createChart(
@@ -333,16 +342,14 @@ export class AppComponent implements OnInit {
     pricesParam?: Array<number>,
     mmaParam?: Array<number>
   ) {
-    console.log(id, pricesParam, mmaParam);
-
-    //const prices = ['542', '542', '536', '327', '17', '100.00', '538', '541'];
     const prices = pricesParam ?? [];
-    //const mmaParamX = ['467', '576', '572', '79', '92'];
     const mmaTmp = mmaParam ?? [];
 
     const labels = Array(prices.length).fill(0);
     let mma = Array(prices.length).fill(prices[0]);
     mma.splice(mma.length - mmaTmp.length, mmaTmp.length, ...mmaTmp);
+
+    const scale = this.sandp500Prices[0] / prices[0]
 
     this.charts.push(
       new Chart(id, {
@@ -364,6 +371,12 @@ export class AppComponent implements OnInit {
               backgroundColor: 'pink',
               borderColor: 'pink',
             },
+            {
+              label: 'SP500',
+              data: this.sandp500Prices.map(sandp500price => sandp500price / scale ),
+              backgroundColor: 'red',
+              borderColor: 'red',
+            }
           ],
         },
         options: {
